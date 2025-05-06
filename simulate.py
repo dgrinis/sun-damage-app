@@ -1,19 +1,22 @@
 import cv2
 import os
+import uuid
 
-def simulate_sun_damage(input_path):
-    image = cv2.imread(input_path)
+def simulate_sun_damage(image_path):
+    # Read the uploaded image
+    image = cv2.imread(image_path)
     if image is None:
         return None
 
-    # Simulate sun damage by applying a red-tinted overlay
-    overlay = image.copy()
-    overlay[:] = (0, 0, 100)  # Red tint
+    # Simulate "sun damage" by increasing contrast and adding a reddish filter
+    damage = cv2.convertScaleAbs(image, alpha=1.5, beta=20)
+    damage[:, :, 2] = cv2.add(damage[:, :, 2], 30)  # Boost red channel
 
-    simulated = cv2.addWeighted(image, 0.6, overlay, 0.4, 0)
+    # Generate a unique filename for the result
+    result_filename = f"{uuid.uuid4().hex}.jpg"
+    result_path = os.path.join('static/results', result_filename)
 
-    output_path = input_path.replace("uploads", "results")
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    cv2.imwrite(output_path, simulated)
+    # Save the processed image
+    cv2.imwrite(result_path, damage)
 
-    return output_path
+    return result_path
