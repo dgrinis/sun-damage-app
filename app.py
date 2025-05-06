@@ -1,6 +1,6 @@
 from flask import Flask, request, render_template
 import os
-from simulate import simulate_sun_damage  # Make sure this file exists!
+from simulate import simulate_sun_damage  # Make sure simulate.py exists
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -8,6 +8,7 @@ app = Flask(__name__)
 UPLOAD_FOLDER = 'uploads'
 RESULT_FOLDER = 'results'
 
+# Create folders if they don't exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(RESULT_FOLDER, exist_ok=True)
 
@@ -26,7 +27,11 @@ def index():
         if result_path is None:
             return 'No face detected.', 400
 
-        return render_template('result.html', original_path='/' + original_path, result_path='/' + result_path)
+        return render_template(
+            'result.html',
+            original_path='/' + original_path,
+            result_path='/' + result_path
+        )
 
     return '''
     <!doctype html>
