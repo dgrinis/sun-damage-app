@@ -1,45 +1,54 @@
-import cv2
+from PIL import Image, ImageDraw, ImageEnhance
 import numpy as np
-import mediapipe as mp
+import cv2
 
-def simulate_sun_damage(input_path, output_path):
-    try:
-        image = cv2.imread(input_path)
-        if image is None:
-            return False
+def apply_extreme_sun_damage(image_path, output_path):
+    # Load image
+    original = Image.open(image_path).convert("RGB")
+    image_np = np.array(original)
 
-        mp_face_mesh = mp.solutions.face_mesh
-        mp_drawing = mp.solutions.drawing_utils
+    # Convert to OpenCV format
+    img_cv = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
 
-        with mp_face_mesh.FaceMesh(static_image_mode=True) as face_mesh:
-            results = face_mesh.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+    # Detect face using Haar cascades
+    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale(gray, 1.3, 5)
 
-            if not results.multi_face_landmarks:
-                return False
-
-            h, w, _ = image.shape
-            mask = np.zeros((h, w), dtype=np.uint8)
-
-            for face_landmarks in results.multi_face_landmarks:
-                points = []
-                for lm in face_landmarks.landmark:
-                    x, y = int(lm.x * w), int(lm.y * h)
-                    points.append((x, y))
-                points = np.array(points, dtype=np.int32)
-                cv2.fillConvexPoly(mask, points, 255)
-
-            # Create simulated freckles as noise
-            noise = np.random.normal(loc=0, scale=255, size=image.shape).astype(np.uint8)
-            sun_damage = cv2.addWeighted(image, 1, noise, 0.07, 0)
-
-            # Apply noise only to face mask
-            result = image.copy()
-            for c in range(3):
-                result[:, :, c] = np.where(mask == 255, sun_damage[:, :, c], image[:, :, c])
-
-            cv2.imwrite(output_path, result)
-            return True
-
-    except Exception as e:
-        print("Simulation error:", e)
+    if len(faces) == 0:
+        original.save(output_path)
         return False
+
+    # Convert back to PIL
+    damaged = original.copy()
+    draw = ImageDraw.Draw(damaged)
+
+    for (x, y, w, h) in faces:
+        # Create freckles
+        for _ in range(500):
+            fx = np.random.randint(x, x + w)
+            fy = np.random.randint(y, y + h)
+            r = np.random.randint(1, 3)
+            draw.ellipse((fx, fy, fx + r, fy + r), fill=(75, 45, 30, 180))
+
+        # Create patchy sunspots
+        for _ in range(100):
+            px = np.random.randint(x, x + w)
+            py = np.random.randint(y, y + h)
+            pr = np.random.randint(8, 15)
+            color = (90 + np.random.randint(30), 60, 40)
+            draw.ellipse((px, py, px + pr, py + pr), fill=color)
+
+    # Apply uneven contrast and warmth
+    enhancer_contrast = ImageEnhance.Contrast(damaged)
+    damaged = enhancer_contrast.enhance(1.2)
+
+    enhancer_color = ImageEnhance.Color(damaged)
+    damaged = enhancer_color.enhance(1.3)
+
+    enhancer_brightness = ImageEnhance.Brightness(damaged)
+    damaged = enhancer_brightness.enhance(0.95)
+
+    # Save result
+    damaged.save(output_path)
+    return True
