@@ -1,14 +1,13 @@
 from flask import Flask, request, render_template
+from werkzeug.utils import secure_filename
 import os
 from simulate import simulate_sun_damage  # Make sure simulate.py exists
-from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
-UPLOAD_FOLDER = 'uploads'
-RESULT_FOLDER = 'results'
+UPLOAD_FOLDER = 'static/uploads'
+RESULT_FOLDER = 'static/results'
 
-# Create folders if they don't exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(RESULT_FOLDER, exist_ok=True)
 
@@ -27,20 +26,22 @@ def index():
         if result_path is None:
             return 'No face detected.', 400
 
-        return render_template(
-            'result.html',
-            original_path='/' + original_path,
-            result_path='/' + result_path
-        )
+        # Get only the filenames, not full paths
+        original_filename = os.path.basename(original_path)
+        result_filename = os.path.basename(result_path)
+
+        return render_template('result.html',
+                               original_file=f'/static/uploads/{original_filename}',
+                               result_file=f'/static/results/{result_filename}')
 
     return '''
-    <!doctype html>
-    <title>Sun Damage Simulator</title>
-    <h1>Upload a Selfie</h1>
-    <form method=post enctype=multipart/form-data>
-      <input type=file name=file>
-      <input type=submit value=Upload>
-    </form>
+        <!doctype html>
+        <title>Sun Damage Simulator</title>
+        <h1>Upload a Selfie</h1>
+        <form method=post enctype=multipart/form-data>
+          <input type=file name=file>
+          <input type=submit value=Upload>
+        </form>
     '''
 
 if __name__ == '__main__':
