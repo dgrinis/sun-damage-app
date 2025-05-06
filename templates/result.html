@@ -4,10 +4,16 @@
   <title>Sun Damage Results</title>
 </head>
 <body>
-  <h1>Sun Damage Simulation</h1>
-  <h3>Original</h3>
-  <img src="{{ original_path }}" width="300">
-  <h3>Simulated Sun Damage</h3>
-  <img src="{{ result_path }}" width="300">
+  <h1>Original vs Simulated Sun Damage</h1>
+  <div style="display: flex; gap: 20px;">
+    <div>
+      <h3>Original</h3>
+      <img src="{{ original_path }}" width="300">
+    </div>
+    <div>
+      <h3>Simulated</h3>
+      <img src="{{ result_path }}" width="300">
+    </div>
+  </div>
 </body>
 </html>
