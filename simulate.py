@@ -1,56 +1,36 @@
 import cv2
 import numpy as np
-import mediapipe as mp
-
-mp_face_mesh = mp.solutions.face_mesh
+from PIL import Image, ImageEnhance
+import os
 
 def simulate_sun_damage(input_path, output_path):
     try:
+        # Load and enhance image contrast
         image = cv2.imread(input_path)
         if image is None:
-            print("Failed to read image")
             return False
 
-        rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        pil_image = Image.fromarray(image_rgb)
+        contrast = ImageEnhance.Contrast(pil_image).enhance(2.2)
+        enhanced = cv2.cvtColor(np.array(contrast), cv2.COLOR_RGB2BGR)
 
-        with mp_face_mesh.FaceMesh(static_image_mode=True) as face_mesh:
-            results = face_mesh.process(rgb)
+        # Detect faces
+        gray = cv2.cvtColor(enhanced, cv2.COLOR_BGR2GRAY)
+        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        faces = face_cascade.detectMultiScale(gray, 1.1, 5)
 
-        if not results.multi_face_landmarks:
-            print("No face landmarks detected")
-            return False
+        # Apply darker freckle-like dots in face region
+        for (x, y, w, h) in faces:
+            for _ in range(1500):
+                rx = np.random.randint(x, x + w)
+                ry = np.random.randint(y, y + h)
+                cv2.circle(enhanced, (rx, ry), radius=1, color=(30, 30, 30), thickness=-1)
 
-        # Create face mask
-        mask = np.zeros(image.shape[:2], dtype=np.uint8)
-        h, w = image.shape[:2]
-        for landmarks in results.multi_face_landmarks:
-            points = []
-            for lm in landmarks.landmark:
-                x, y = int(lm.x * w), int(lm.y * h)
-                points.append((x, y))
-            hull = cv2.convexHull(np.array(points))
-            cv2.fillConvexPoly(mask, hull, 255)
-
-        # Generate freckle-like noise
-        damage_layer = np.zeros_like(image, dtype=np.uint8)
-        freckle_count = 600
-        for _ in range(freckle_count):
-            x = np.random.randint(0, w)
-            y = np.random.randint(0, h)
-            if mask[y, x] > 0:
-                radius = np.random.randint(1, 3)
-                intensity = np.random.randint(40, 90)
-                cv2.circle(damage_layer, (x, y), radius, (intensity, intensity, intensity), -1)
-
-        # Blend freckles into face only
-        face_area = cv2.bitwise_and(image, image, mask=mask)
-        freckled = cv2.addWeighted(face_area, 1, damage_layer, 0.6, 0)
-        result = image.copy()
-        result[mask > 0] = freckled[mask > 0]
-
-        cv2.imwrite(output_path, result)
+        # Save result
+        cv2.imwrite(output_path, enhanced)
         return True
 
     except Exception as e:
-        print(f"Error during simulation: {e}")
+        print("Sun damage simulation failed:", e)
         return False
