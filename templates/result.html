@@ -1,19 +1,21 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-  <title>Sun Damage Results</title>
-</head>
-<body>
-  <h1>Original vs Simulated Sun Damage</h1>
-  <div style="display: flex; gap: 20px;">
-    <div>
-      <h3>Original</h3>
-      <img src="{{ original_path }}" width="300">
-    </div>
-    <div>
-      <h3>Simulated</h3>
-      <img src="{{ result_path }}" width="300">
-    </div>
-  </div>
-</body>
+  <head>
+    <title>Sun Damage Results</title>
+  </head>
+  <body>
+    <h1>Original vs Simulated Sun Damage</h1>
+    <table>
+      <tr>
+        <th>Original</th>
+        <th>Simulated</th>
+      </tr>
+      <tr>
+        <td><img src="{{ original_image }}" width="300"></td>
+        <td><img src="{{ result_image }}" width="300"></td>
+      </tr>
+    </table>
+    <br>
+    <a href="/">Upload another</a>
+  </body>
 </html>
