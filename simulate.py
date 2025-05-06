@@ -1,54 +1,56 @@
-from PIL import Image, ImageDraw, ImageEnhance
-import numpy as np
 import cv2
+import numpy as np
+import mediapipe as mp
 
 def apply_extreme_sun_damage(image_path, output_path):
-    # Load image
-    original = Image.open(image_path).convert("RGB")
-    image_np = np.array(original)
+    try:
+        # Load image
+        image = cv2.imread(image_path)
+        if image is None:
+            return False
 
-    # Convert to OpenCV format
-    img_cv = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
+        # Convert to RGB
+        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-    # Detect face using Haar cascades
-    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-    gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
-    faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+        # Face detection
+        mp_face_mesh = mp.solutions.face_mesh
+        face_mesh = mp_face_mesh.FaceMesh(static_image_mode=True)
+        results = face_mesh.process(image_rgb)
 
-    if len(faces) == 0:
-        original.save(output_path)
+        if not results.multi_face_landmarks:
+            return False
+
+        # Create mask
+        mask = np.zeros(image.shape[:2], dtype=np.uint8)
+        h, w = mask.shape
+
+        for face_landmarks in results.multi_face_landmarks:
+            points = [(int(landmark.x * w), int(landmark.y * h)) for landmark in face_landmarks.landmark]
+            hull = cv2.convexHull(np.array(points))
+            cv2.drawContours(mask, [hull], -1, 255, -1)
+
+        # Add noise to simulate extreme sun damage
+        noise = np.random.normal(loc=30, scale=50, size=image.shape).astype(np.uint8)
+        damaged = cv2.add(image, noise)
+
+        # Blur and darken
+        damaged = cv2.GaussianBlur(damaged, (7, 7), 0)
+        damaged = cv2.addWeighted(damaged, 0.6, image, 0.4, 0)
+
+        # Only apply to face region
+        face_only = cv2.bitwise_and(damaged, damaged, mask=mask)
+        background = cv2.bitwise_and(image, image, mask=cv2.bitwise_not(mask))
+        final = cv2.add(face_only, background)
+
+        # Save result
+        cv2.imwrite(output_path, final)
+        return True
+
+    except Exception as e:
+        print(f"Simulation error: {e}")
         return False
 
-    # Convert back to PIL
-    damaged = original.copy()
-    draw = ImageDraw.Draw(damaged)
+# Adapter function for Flask app
 
-    for (x, y, w, h) in faces:
-        # Create freckles
-        for _ in range(500):
-            fx = np.random.randint(x, x + w)
-            fy = np.random.randint(y, y + h)
-            r = np.random.randint(1, 3)
-            draw.ellipse((fx, fy, fx + r, fy + r), fill=(75, 45, 30, 180))
-
-        # Create patchy sunspots
-        for _ in range(100):
-            px = np.random.randint(x, x + w)
-            py = np.random.randint(y, y + h)
-            pr = np.random.randint(8, 15)
-            color = (90 + np.random.randint(30), 60, 40)
-            draw.ellipse((px, py, px + pr, py + pr), fill=color)
-
-    # Apply uneven contrast and warmth
-    enhancer_contrast = ImageEnhance.Contrast(damaged)
-    damaged = enhancer_contrast.enhance(1.2)
-
-    enhancer_color = ImageEnhance.Color(damaged)
-    damaged = enhancer_color.enhance(1.3)
-
-    enhancer_brightness = ImageEnhance.Brightness(damaged)
-    damaged = enhancer_brightness.enhance(0.95)
-
-    # Save result
-    damaged.save(output_path)
-    return True
+def simulate_sun_damage(image_path, output_path):
+    return apply_extreme_sun_damage(image_path, output_path)
