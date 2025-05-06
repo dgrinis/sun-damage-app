@@ -9,39 +9,47 @@ def simulate_sun_damage(input_path, output_path):
             return False
 
         height, width, _ = image.shape
-
-        # Create elliptical mask for face approximation
-        face_mask = np.zeros((height, width), dtype=np.uint8)
         center_x, center_y = width // 2, int(height * 0.55)
+
+        # Approximate full face mask
+        face_mask = np.zeros((height, width), dtype=np.uint8)
         axes_length = (int(width * 0.22), int(height * 0.28))
         cv2.ellipse(face_mask, (center_x, center_y), axes_length, 0, 0, 360, 255, -1)
 
-        # Convert to color mask for blending
+        # Define facial zones (nose bridge, cheeks, forehead)
+        zones = [
+            (center_x, center_y, 80),  # center face
+            (center_x - 60, center_y + 20, 60),  # left cheek
+            (center_x + 60, center_y + 20, 60),  # right cheek
+            (center_x, center_y - 60, 50),  # forehead
+        ]
+
+        output = image.copy()
+
+        for cx, cy, radius in zones:
+            num_freckles = random.randint(60, 100)
+            for _ in range(num_freckles):
+                angle = random.uniform(0, 2 * np.pi)
+                r = radius * np.sqrt(random.uniform(0, 1))
+                x = int(cx + r * np.cos(angle))
+                y = int(cy + r * np.sin(angle))
+
+                if 0 <= x < width and 0 <= y < height and face_mask[y, x] > 0:
+                    size = random.randint(1, 3)
+                    color = (
+                        random.randint(40, 90),  # B
+                        random.randint(30, 60),  # G
+                        random.randint(20, 40),  # R
+                    )
+                    cv2.circle(output, (x, y), size, color, -1)
+
+        # Blend only face area
         face_mask_color = cv2.merge([face_mask] * 3)
+        final = np.where(face_mask_color > 0, output, image)
 
-        # Copy the original image to draw freckles
-        simulated = image.copy()
-
-        # Parameters for freckle simulation
-        num_freckles = 300
-        for _ in range(num_freckles):
-            # Random point within ellipse
-            x = random.randint(center_x - axes_length[0], center_x + axes_length[0])
-            y = random.randint(center_y - axes_length[1], center_y + axes_length[1])
-
-            if face_mask[y, x] > 0:
-                radius = random.randint(1, 2)
-                intensity = random.randint(30, 60)
-                color = (intensity, intensity // 2, intensity // 3)  # light brown
-                cv2.circle(simulated, (x, y), radius, color, -1)
-
-        # Blend the simulated damage only where mask is applied
-        output = np.where(face_mask_color > 0, simulated, image)
-
-        # Save final result
-        cv2.imwrite(output_path, output)
+        cv2.imwrite(output_path, final)
         return True
 
     except Exception as e:
-        print(f"Sun damage simulation failed: {e}")
+        print(f"Simulation failed: {e}")
         return False
