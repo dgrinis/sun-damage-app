@@ -1,55 +1,50 @@
 import cv2
 import numpy as np
+import mediapipe as mp
 import random
 
-def simulate_sun_damage(input_path, output_path):
-    try:
-        image = cv2.imread(input_path)
-        if image is None:
-            return False
-
-        height, width, _ = image.shape
-        center_x, center_y = width // 2, int(height * 0.55)
-
-        # Approximate full face mask
-        face_mask = np.zeros((height, width), dtype=np.uint8)
-        axes_length = (int(width * 0.22), int(height * 0.28))
-        cv2.ellipse(face_mask, (center_x, center_y), axes_length, 0, 0, 360, 255, -1)
-
-        # Define facial zones (nose bridge, cheeks, forehead)
-        zones = [
-            (center_x, center_y, 80),  # center face
-            (center_x - 60, center_y + 20, 60),  # left cheek
-            (center_x + 60, center_y + 20, 60),  # right cheek
-            (center_x, center_y - 60, 50),  # forehead
-        ]
-
-        output = image.copy()
-
-        for cx, cy, radius in zones:
-            num_freckles = random.randint(60, 100)
-            for _ in range(num_freckles):
-                angle = random.uniform(0, 2 * np.pi)
-                r = radius * np.sqrt(random.uniform(0, 1))
-                x = int(cx + r * np.cos(angle))
-                y = int(cy + r * np.sin(angle))
-
-                if 0 <= x < width and 0 <= y < height and face_mask[y, x] > 0:
-                    size = random.randint(1, 3)
-                    color = (
-                        random.randint(40, 90),  # B
-                        random.randint(30, 60),  # G
-                        random.randint(20, 40),  # R
-                    )
-                    cv2.circle(output, (x, y), size, color, -1)
-
-        # Blend only face area
-        face_mask_color = cv2.merge([face_mask] * 3)
-        final = np.where(face_mask_color > 0, output, image)
-
-        cv2.imwrite(output_path, final)
-        return True
-
-    except Exception as e:
-        print(f"Simulation failed: {e}")
+def simulate_sun_damage(image_path, output_path, intensity=0.6):
+    # Load image
+    image = cv2.imread(image_path)
+    if image is None:
         return False
+
+    h, w, _ = image.shape
+
+    # Initialize MediaPipe Face Mesh
+    mp_face_mesh = mp.solutions.face_mesh
+    face_mesh = mp_face_mesh.FaceMesh(static_image_mode=True, max_num_faces=1, refine_landmarks=True)
+
+    # Convert image to RGB
+    rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    results = face_mesh.process(rgb_image)
+
+    if not results.multi_face_landmarks:
+        return False
+
+    # Create face mask
+    mask = np.zeros((h, w), dtype=np.uint8)
+    face_landmarks = results.multi_face_landmarks[0]
+    points = [(int(p.x * w), int(p.y * h)) for p in face_landmarks.landmark]
+    hull = cv2.convexHull(np.array(points))
+    cv2.fillConvexPoly(mask, hull, 255)
+
+    # Generate fake sun damage (freckles/age spots) within the face mask
+    freckle_count = int(500 * intensity)
+    for _ in range(freckle_count):
+        for _ in range(5):  # Retry if random point isn't on the face
+            x = random.randint(0, w - 1)
+            y = random.randint(0, h - 1)
+            if mask[y, x] > 0:
+                radius = random.randint(1, 3)
+                color = (
+                    random.randint(20, 40),  # Blue-ish
+                    random.randint(30, 60),  # Green-ish
+                    random.randint(50, 80)   # Red-ish — brownish overall
+                )
+                cv2.circle(image, (x, y), radius, color, -1)
+                break
+
+    # Save result
+    cv2.imwrite(output_path, image)
+    return True
