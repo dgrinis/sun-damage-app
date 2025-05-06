@@ -1,11 +1,22 @@
 import cv2
+import os
 
-def simulate_sun_damage(input_path, output_path):
-    image = cv2.imread(input_path)
-    if image is None:
-        return False  # No image found or bad input
+def simulate_sun_damage(image_path):
+    # Read the image
+    img = cv2.imread(image_path)
 
-    # Dummy simulation: convert to grayscale
-    result = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    cv2.imwrite(output_path, result)
-    return True
+    if img is None:
+        return None
+
+    # Copy the image to avoid modifying original
+    sun_damage = img.copy()
+
+    # Simulate sun damage by enhancing the red channel slightly
+    sun_damage[:, :, 2] = cv2.add(sun_damage[:, :, 2], 30)  # Red channel
+
+    # Save the result to 'static/results' with the same filename
+    filename = os.path.basename(image_path)
+    result_path = os.path.join("static/results", filename)
+    cv2.imwrite(result_path, sun_damage)
+
+    return result_path
