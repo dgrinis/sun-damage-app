@@ -3,42 +3,37 @@ import numpy as np
 
 def simulate_sun_damage(input_path, output_path):
     try:
-        # Load and convert to RGB
+        # Load image
         image = cv2.imread(input_path)
         if image is None:
             return False
-        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        # Generate strong noise mask for dark spots
-        noise = np.random.normal(loc=0.3, scale=1.2, size=image_rgb.shape[:2])
-        noise = cv2.GaussianBlur(noise, (7, 7), 0)
-        noise_mask = np.clip(noise * 255, 0, 255).astype(np.uint8)
+        height, width, _ = image.shape
 
-        # Threshold for visible dark freckles
-        _, binary_mask = cv2.threshold(noise_mask, 120, 255, cv2.THRESH_BINARY)
+        # Create an elliptical mask for the face region
+        mask = np.zeros((height, width), dtype=np.uint8)
+        center_x, center_y = width // 2, height // 2
+        axes_length = (width // 4, height // 3)
+        cv2.ellipse(mask, (center_x, center_y), axes_length, 0, 0, 360, 255, -1)
 
-        # Freckle color (darker brown)
-        freckle_color = np.full_like(image_rgb, (60, 40, 20))  # RGB
-        freckle_layer = cv2.bitwise_and(freckle_color, freckle_color, mask=binary_mask)
+        # Convert mask to 3-channel
+        mask_color = cv2.merge([mask, mask, mask])
 
-        # Overlay stronger freckles
-        damaged = cv2.addWeighted(image_rgb, 1, freckle_layer, 0.7, 0)
+        # Create noise for sun damage
+        noise = np.random.normal(loc=0, scale=60, size=image.shape).astype(np.int16)
+        noise_masked = (noise * (mask_color > 0)).astype(np.int16)
 
-        # Apply mild yellow tint (sun discoloration)
-        yellow_filter = np.full_like(damaged, (30, 20, 0))  # light brown
-        damaged = cv2.addWeighted(damaged, 0.9, yellow_filter, 0.3, 5)
+        # Add noise to the image
+        damaged_image = image.astype(np.int16) + noise_masked
+        damaged_image = np.clip(damaged_image, 0, 255).astype(np.uint8)
 
-        # Increase contrast and lower brightness for more drama
-        damaged = cv2.convertScaleAbs(damaged, alpha=1.5, beta=-40)
-
-        # Optional: slight blur to simulate aging texture
-        damaged = cv2.GaussianBlur(damaged, (3, 3), 0)
+        # Blend the original image and damaged image using the mask
+        output = np.where(mask_color > 0, damaged_image, image)
 
         # Save the result
-        result_bgr = cv2.cvtColor(damaged, cv2.COLOR_RGB2BGR)
-        cv2.imwrite(output_path, result_bgr)
+        cv2.imwrite(output_path, output)
         return True
 
     except Exception as e:
-        print("Simulation error:", e)
+        print(f"Error in simulate_sun_damage: {e}")
         return False
