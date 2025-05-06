@@ -4,29 +4,32 @@ import traceback
 
 def simulate_sun_damage(image_path, output_path):
     try:
-        # Load the original image
         image = cv2.imread(image_path)
         if image is None:
             raise FileNotFoundError(f"Could not read image at: {image_path}")
 
-        # Convert to YUV color space to work on brightness
-        yuv = cv2.cvtColor(image, cv2.COLOR_BGR2YUV)
+        # Step 1: Slightly increase contrast
+        image = cv2.convertScaleAbs(image, alpha=1.3, beta=-20)  # alpha > 1.0 = more contrast
 
-        # Decrease brightness (simulate long-term UV exposure)
-        yuv[:, :, 0] = np.clip(yuv[:, :, 0] * 0.8, 0, 255)  # Y channel controls brightness
+        # Step 2: Convert to HSV and boost reds (freckles/sun damage tones)
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        h, s, v = cv2.split(hsv)
+        s = np.clip(s + 20, 0, 255)  # Boost saturation
+        v = np.clip(v - 10, 0, 255)  # Slightly darken
+        hsv = cv2.merge([h, s, v])
+        image = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
 
-        # Convert back to BGR
-        simulated = cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR)
+        # Step 3: Add subtle speckle noise (simulate texture)
+        noise = np.random.normal(0, 8, image.shape).astype(np.uint8)
+        image = cv2.add(image, noise)
 
-        # Optional: add freckles or increase contrast if desired
-
-        # Save the processed image
-        success = cv2.imwrite(output_path, simulated)
+        # Step 4: Save result
+        success = cv2.imwrite(output_path, image)
         if not success:
-            raise IOError(f"Failed to write image to: {output_path}")
+            raise IOError(f"Could not write image to: {output_path}")
 
-        return True  # Indicate success
+        return True
     except Exception as e:
         print("❌ Simulation failed:", str(e))
         traceback.print_exc()
-        return False  # Indicate failure
+        return False
