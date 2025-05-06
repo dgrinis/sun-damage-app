@@ -1,11 +1,13 @@
-from flask import Flask, request, send_file, render_template
+from flask import Flask, request, render_template
 import os
-from simulate import simulate_sun_damage  # make sure simulate.py exists
+from simulate import simulate_sun_damage  # Make sure this file exists!
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
+
 UPLOAD_FOLDER = 'uploads'
 RESULT_FOLDER = 'results'
+
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(RESULT_FOLDER, exist_ok=True)
 
@@ -24,12 +26,8 @@ def index():
         if result_path is None:
             return 'No face detected.', 400
 
-        # Pass both image paths to the HTML template
-        return render_template('result.html',
-                               original_img=original_path,
-                               result_img=result_path)
+        return render_template('result.html', original_path='/' + original_path, result_path='/' + result_path)
 
-    # GET request
     return '''
     <!doctype html>
     <title>Sun Damage Simulator</title>
@@ -40,3 +38,5 @@ def index():
     </form>
     '''
 
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
