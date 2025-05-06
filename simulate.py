@@ -1,35 +1,32 @@
 import cv2
 import numpy as np
-import os
+import traceback
 
 def simulate_sun_damage(image_path, output_path):
     try:
-        # Load image
+        # Load the original image
         image = cv2.imread(image_path)
-
         if image is None:
-            raise ValueError(f"Failed to load image from: {image_path}")
+            raise FileNotFoundError(f"Could not read image at: {image_path}")
 
-        # Convert to float for processing
-        image = image.astype(np.float32) / 255.0
+        # Convert to YUV color space to work on brightness
+        yuv = cv2.cvtColor(image, cv2.COLOR_BGR2YUV)
 
-        # Add red tint (sun damage effect)
-        image[:, :, 2] = np.clip(image[:, :, 2] + 0.2, 0, 1)
+        # Decrease brightness (simulate long-term UV exposure)
+        yuv[:, :, 0] = np.clip(yuv[:, :, 0] * 0.8, 0, 255)  # Y channel controls brightness
 
-        # Increase contrast
-        image = np.clip(1.2 * image - 0.1, 0, 1)
+        # Convert back to BGR
+        simulated = cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR)
 
-        # Convert back to uint8
-        simulated = (image * 255).astype(np.uint8)
+        # Optional: add freckles or increase contrast if desired
 
-        # Ensure output directory exists
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
-        # Save the result
+        # Save the processed image
         success = cv2.imwrite(output_path, simulated)
         if not success:
             raise IOError(f"Failed to write image to: {output_path}")
 
+        return True  # Indicate success
     except Exception as e:
         print("❌ Simulation failed:", str(e))
-        raise
+        traceback.print_exc()
+        return False  # Indicate failure
